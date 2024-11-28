@@ -47,6 +47,18 @@ export class CodeGraphSearchStack extends cdk.Stack {
       'Allow Neptune access'
     );
 
+    const opensearchSecurityGroup = new ec2.SecurityGroup(this, 'OpenSearchSecurityGroup', {
+      vpc,
+      description: 'Security group for OpenSearch cluster',
+      allowAllOutbound: true,
+    });
+
+    opensearchSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(443),
+      'Allow OpenSearch access'
+    );
+
     const subnetGroup = new neptune.CfnDBSubnetGroup(this, 'NeptuneSubnetGroup', {
       dbSubnetGroupDescription: 'Subnet group for Neptune cluster',
       subnetIds: vpc.selectSubnets({
@@ -92,6 +104,96 @@ export class CodeGraphSearchStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('NeptuneGraphReadOnlyAccess'),
       ],
     });
+
+    // OpenSearch Serverless
+    const codeGraphOpenSearchDomain = new openSearchServerless.CfnCollection(this, 'OpenSearchCollection', {
+      name: 'code-graph-opensearch',
+      type: 'VECTORSEARCH',
+      standbyReplicas: "DISABLED"  // Need to Enable this option for production.
+    });
+
+    const collectionName = `collection/${codeGraphOpenSearchDomain.name}`;
+    const codeGraphAccessPolicy = new openSearchServerless.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
+      name: 'opensearch-access',
+      type: 'data',
+      policy: JSON.stringify([
+        {
+          Rules: [
+            {
+              ResourceType: 'index',
+              Resource: [`index/*/*`],
+              Permission: [
+                'aoss:ReadDocument',
+                'aoss:WriteDocument',
+                'aoss:CreateIndex',
+                'aoss:DeleteIndex',
+                'aoss:UpdateIndex',
+                'aoss:DescribeIndex',
+              ],
+            },
+            {
+              ResourceType: 'collection',
+              Resource: [collectionName],
+              Permission: [
+                'aoss:CreateCollectionItems',
+                'aoss:DeleteCollectionItems',
+                'aoss:UpdateCollectionItems',
+                'aoss:DescribeCollectionItems',
+              ],
+            },
+          ],
+          Principal: [createCodeGraphSearchLambdaRole.roleArn, seachCodeGraphLambdaRole.roleArn],
+        },
+      ])
+    });
+
+    const codeGraphOpenSearchEncryptionPolicy = new openSearchServerless.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
+      name: 'code-graph-opensearch-encryption',
+      type: 'encryption',
+      policy: JSON.stringify({
+        Rules: [
+          {
+            ResourceType: 'collection',
+            Resource: [collectionName],
+          },
+        ],
+        AWSOwnedKey: true,
+      })
+    });
+
+    const codeGraphVPCE = new openSearchServerless.CfnVpcEndpoint(this, 'OpenSearchVpcEndpoints', {
+      name: 'code-graph-opensearch-vpce',
+      vpcId: vpc.vpcId,
+      securityGroupIds: [opensearchSecurityGroup.securityGroupId],
+      subnetIds: vpc.selectSubnets({
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED
+      }).subnetIds
+    });
+
+    const codeGraphOpenSearchNetworkPolicy = new openSearchServerless.CfnSecurityPolicy(this, 'OpenSearchNetworkPolicy', {
+      name: 'code-graph-opensearch-network',
+      type: 'network',
+      policy: JSON.stringify([
+        {
+          Rules: [
+            {
+              ResourceType: 'collection',
+              Resource: [collectionName],
+            },
+            {
+              ResourceType: 'dashboard',
+              Resource: [collectionName],
+            },
+          ],
+          SourceVPCEs: [codeGraphVPCE.attrId]
+        }
+      ])
+    });
+
+    codeGraphOpenSearchDomain.addDependency(codeGraphAccessPolicy);
+    codeGraphOpenSearchDomain.addDependency(codeGraphOpenSearchEncryptionPolicy);
+    codeGraphOpenSearchDomain.addDependency(codeGraphOpenSearchNetworkPolicy);
+
 
     // Define the lambda functions
     const createCodeGraphLambdaFunction = new lambda.Function(this, 'CreateCodeGraphFunction', {
