@@ -3,7 +3,7 @@ import { Construct } from 'constructs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as neptune from 'aws-cdk-lib/aws-neptune';
-import * as openSearchServerless from 'aws-cdk-lib/aws-opensearchserverless';
+import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -84,7 +84,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
     }).addDependency(neptuneCluster);
 
     // Define the Lambda roles
-    const createCodeGraphSearchLambdaRole = new iam.Role(this, 'CodeGraphSearchRole', {
+    const createCodeGraphSearchLambdaRole = new iam.Role(this, 'CreateCodeGraphRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
@@ -106,94 +106,48 @@ export class CodeGraphSearchStack extends cdk.Stack {
     });
 
     // OpenSearch Serverless
-    const codeGraphOpenSearchDomain = new openSearchServerless.CfnCollection(this, 'OpenSearchCollection', {
-      name: 'code-graph-opensearch',
-      type: 'VECTORSEARCH',
-      standbyReplicas: "DISABLED"  // Need to Enable this option for production.
-    });
-
-    const collectionName = `collection/${codeGraphOpenSearchDomain.name}`;
-    const codeGraphAccessPolicy = new openSearchServerless.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
-      name: 'opensearch-access',
-      type: 'data',
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              ResourceType: 'index',
-              Resource: [`index/*/*`],
-              Permission: [
-                'aoss:ReadDocument',
-                'aoss:WriteDocument',
-                'aoss:CreateIndex',
-                'aoss:DeleteIndex',
-                'aoss:UpdateIndex',
-                'aoss:DescribeIndex',
-              ],
-            },
-            {
-              ResourceType: 'collection',
-              Resource: [collectionName],
-              Permission: [
-                'aoss:CreateCollectionItems',
-                'aoss:DeleteCollectionItems',
-                'aoss:UpdateCollectionItems',
-                'aoss:DescribeCollectionItems',
-              ],
-            },
-          ],
-          Principal: [createCodeGraphSearchLambdaRole.roleArn, seachCodeGraphLambdaRole.roleArn],
-        },
-      ])
-    });
-
-    const codeGraphOpenSearchEncryptionPolicy = new openSearchServerless.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
-      name: 'code-graph-opensearch-encryption',
-      type: 'encryption',
-      policy: JSON.stringify({
-        Rules: [
+    const codeGraphOpenSearch = new opensearch.CfnDomain(this, 'OpenSearchDomain', {
+      domainName: 'code-graph-opensearch',
+      engineVersion: 'OpenSearch_2.15',
+      clusterConfig: {
+        instanceType: 'r7g.medium.search',
+        instanceCount: 1,
+        dedicatedMasterEnabled: false,
+        zoneAwarenessEnabled: false
+      },
+      ebsOptions: {
+        ebsEnabled: true,
+        volumeSize: 10,
+        volumeType: 'gp3'
+      },
+      vpcOptions: {
+        subnetIds: [vpc.selectSubnets({
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+          onePerAz: true,
+          availabilityZones: [vpc.availabilityZones[0]]
+        }).subnetIds[0]],
+        securityGroupIds: [opensearchSecurityGroup.securityGroupId]
+      },
+      encryptionAtRestOptions: {
+        enabled: true
+      },
+      nodeToNodeEncryptionOptions: {
+        enabled: true
+      },
+      accessPolicies: {
+        Version: '2012-10-17',
+        Statement: [
           {
-            ResourceType: 'collection',
-            Resource: [collectionName],
-          },
-        ],
-        AWSOwnedKey: true,
-      })
-    });
-
-    const codeGraphVPCE = new openSearchServerless.CfnVpcEndpoint(this, 'OpenSearchVpcEndpoints', {
-      name: 'code-graph-opensearch-vpce',
-      vpcId: vpc.vpcId,
-      securityGroupIds: [opensearchSecurityGroup.securityGroupId],
-      subnetIds: vpc.selectSubnets({
-        subnetType: ec2.SubnetType.PRIVATE_ISOLATED
-      }).subnetIds
-    });
-
-    const codeGraphOpenSearchNetworkPolicy = new openSearchServerless.CfnSecurityPolicy(this, 'OpenSearchNetworkPolicy', {
-      name: 'code-graph-opensearch-network',
-      type: 'network',
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              ResourceType: 'collection',
-              Resource: [collectionName],
+            Effect: 'Allow',
+            Principal: {
+              AWS: [createCodeGraphSearchLambdaRole.roleArn, seachCodeGraphLambdaRole.roleArn]
             },
-            {
-              ResourceType: 'dashboard',
-              Resource: [collectionName],
-            },
-          ],
-          SourceVPCEs: [codeGraphVPCE.attrId]
-        }
-      ])
+            Action: 'es:*',
+            Resource: `arn:aws:es:${this.region}:${this.account}:domain/code-graph-opensearch/*`
+          }
+        ]
+      }
     });
-
-    codeGraphOpenSearchDomain.addDependency(codeGraphAccessPolicy);
-    codeGraphOpenSearchDomain.addDependency(codeGraphOpenSearchEncryptionPolicy);
-    codeGraphOpenSearchDomain.addDependency(codeGraphOpenSearchNetworkPolicy);
-
 
     // Define the lambda functions
     const createCodeGraphLambdaFunction = new lambda.Function(this, 'CreateCodeGraphFunction', {
@@ -211,22 +165,25 @@ export class CodeGraphSearchStack extends cdk.Stack {
     createCodeGraphLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
     createCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrEndpoint);
     createCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
+    createCodeGraphLambdaFunction.addEnvironment('OPENSEARCH_DNS', codeGraphOpenSearch.attrDomainEndpoint);
 
     const searchCodeGraphLambdaFunction = new lambda.Function(this, 'SearchCodeGraphFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset('./lambda/searchCodeGraph'),
       handler: 'index.handler',
-      role: seachCodeGraphLambdaRole,
+      role: createCodeGraphSearchLambdaRole,
       timeout: cdk.Duration.seconds(10),
       vpc: vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
       },
     });
+    searchCodeGraphLambdaFunction.addEnvironment('REGION', this.region);
     searchCodeGraphLambdaFunction.addEnvironment('S3_ENDPOINT', ec2.GatewayVpcEndpointAwsService.S3.name);
     searchCodeGraphLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
     searchCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrReadEndpoint);
     searchCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
+    searchCodeGraphLambdaFunction.addEnvironment('OPENSEARCH_DNS', codeGraphOpenSearch.attrDomainEndpoint);
 
     // Define the API Gateway
     const api = new apigateway.LambdaRestApi(this, 'CodeGraphApi', {

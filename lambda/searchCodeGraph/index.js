@@ -1,9 +1,17 @@
 const { listAll } = require('./neptune/listTop');
+const { upsertClassMetaRag, semanticSearch } = require('./opensearch/codeMetaRag');
+const { invokeTitanEmbedding } = require('./bedrock/invoke');
+
+const { CLASS_META_DATA } = require('./constants');
 
 async function handler(event, context) {
     try {
         
         const result = await listAll();
+        await upsertClassMetaRag('ClassA', 'PathA', 'I like apple.');
+        const vector = await invokeTitanEmbedding('I want to eat apple.');
+        console.log(vector.length);
+        const searchResult = await semanticSearch(CLASS_META_DATA, vector);
         
         return {
             statusCode: 200,
@@ -15,7 +23,8 @@ async function handler(event, context) {
             },
             body: JSON.stringify({
                 message: 'Code Graph Search function.',
-                embedding: result
+                embedding: result,
+                searchResult
             })
         };
     } catch (error) {

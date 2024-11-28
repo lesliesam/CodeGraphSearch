@@ -45,7 +45,6 @@ async function invokeTitanEmbedding(message) {
         });
         const response = await client.send(command);
         const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-        console.log(responseBody.embedding.length);
         return responseBody.embedding;
     } catch (err) {
         console.error(err);
