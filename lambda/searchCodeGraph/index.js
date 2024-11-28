@@ -14,7 +14,7 @@ async function handler(event, context) {
                 'Access-Control-Allow-Headers': 'Content-Type,Authorization'
             },
             body: JSON.stringify({
-                message: 'Code Graph Create function.',
+                message: 'Code Graph Search Create function.',
                 embedding: result
             })
         };
