@@ -1,9 +1,9 @@
-const { invokeCommand, invokeTitanEmbedding } = require('./bedrock/invoke');
+const { listAll } = require('./neptune/listTop');
 
 async function handler(event, context) {
     try {
         
-        const result = await invokeTitanEmbedding('hello');
+        const result = await listAll();
         
         return {
             statusCode: 200,
@@ -14,7 +14,7 @@ async function handler(event, context) {
                 'Access-Control-Allow-Headers': 'Content-Type,Authorization'
             },
             body: JSON.stringify({
-                message: 'Code Graph Search Create function.',
+                message: 'Code Graph Search function.',
                 embedding: result
             })
         };

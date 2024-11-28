@@ -207,9 +207,10 @@ export class CodeGraphSearchStack extends cdk.Stack {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
       },
     });
-    // Add Lambda environment variables
     createCodeGraphLambdaFunction.addEnvironment('S3_ENDPOINT', ec2.GatewayVpcEndpointAwsService.S3.name);
-    createCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
+    createCodeGraphLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
+    createCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrEndpoint);
+    createCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
 
     const searchCodeGraphLambdaFunction = new lambda.Function(this, 'SearchCodeGraphFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -222,6 +223,10 @@ export class CodeGraphSearchStack extends cdk.Stack {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
       },
     });
+    searchCodeGraphLambdaFunction.addEnvironment('S3_ENDPOINT', ec2.GatewayVpcEndpointAwsService.S3.name);
+    searchCodeGraphLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
+    searchCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrReadEndpoint);
+    searchCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
 
     // Define the API Gateway
     const api = new apigateway.LambdaRestApi(this, 'CodeGraphApi', {

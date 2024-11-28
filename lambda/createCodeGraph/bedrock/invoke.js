@@ -3,7 +3,7 @@ const { BedrockRuntimeClient, InvokeModelCommand } = require("@aws-sdk/client-be
 require('dotenv').config();
 
 const client = new BedrockRuntimeClient({
-    endpoint: `https://${process.env.PRIVATE_NEPTUNE_DNS}`
+    endpoint: `https://${process.env.PRIVATE_BEDROCK_DNS}`
 });
 
 async function invokeCommand(systemPrompt, messages) {
