@@ -47,6 +47,19 @@ export class CodeGraphSearchStack extends cdk.Stack {
       'Allow Neptune access'
     );
 
+    // Define the SQS
+    const codeDownloadDlq = new sqs.Queue(this, 'Code Download DLQ', {
+      visibilityTimeout: cdk.Duration.seconds(300),
+    });
+    const codeDownloadQueue = new sqs.Queue(this, 'Code Download Queue', {
+      visibilityTimeout: cdk.Duration.seconds(300),
+      deadLetterQueue: {
+        queue: codeDownloadDlq,
+        maxReceiveCount: 10,
+      },
+    });
+
+    // Define the OpenSearch
     const opensearchSecurityGroup = new ec2.SecurityGroup(this, 'OpenSearchSecurityGroup', {
       vpc,
       description: 'Security group for OpenSearch cluster',
@@ -84,7 +97,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
     }).addDependency(neptuneCluster);
 
     // Define the Lambda roles
-    const createCodeGraphSearchLambdaRole = new iam.Role(this, 'CreateCodeGraphRole', {
+    const codeGraphSearchLambdaRole = new iam.Role(this, 'CreateCodeGraphRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
@@ -92,16 +105,6 @@ export class CodeGraphSearchStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonS3FullAccess'),
         iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonOpenSearchServiceFullAccess'),
         iam.ManagedPolicy.fromAwsManagedPolicyName('NeptuneFullAccess'),
-      ],
-    });
-
-    const seachCodeGraphLambdaRole = new iam.Role(this, 'SearchCodeGraphRole', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockReadOnly'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonOpenSearchServiceReadOnlyAccess'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('NeptuneGraphReadOnlyAccess'),
       ],
     });
 
@@ -140,7 +143,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
           {
             Effect: 'Allow',
             Principal: {
-              AWS: [createCodeGraphSearchLambdaRole.roleArn, seachCodeGraphLambdaRole.roleArn]
+              AWS: [codeGraphSearchLambdaRole.roleArn]
             },
             Action: 'es:*',
             Resource: `arn:aws:es:${this.region}:${this.account}:domain/code-graph-opensearch/*`
@@ -150,28 +153,29 @@ export class CodeGraphSearchStack extends cdk.Stack {
     });
 
     // Define the lambda functions
-    const createCodeGraphLambdaFunction = new lambda.Function(this, 'CreateCodeGraphFunction', {
+    const codeDownloadLambdaFunction = new lambda.Function(this, 'CreateCodeGraphFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset('./lambda/createCodeGraph'),
       handler: 'index.handler',
-      role: createCodeGraphSearchLambdaRole,
+      role: codeGraphSearchLambdaRole,
       timeout: cdk.Duration.minutes(2),
       vpc: vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
       },
     });
-    createCodeGraphLambdaFunction.addEnvironment('S3_ENDPOINT', ec2.GatewayVpcEndpointAwsService.S3.name);
-    createCodeGraphLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
-    createCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrEndpoint);
-    createCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
-    createCodeGraphLambdaFunction.addEnvironment('OPENSEARCH_DNS', codeGraphOpenSearch.attrDomainEndpoint);
+    codeDownloadLambdaFunction.addEnvironment('S3_ENDPOINT', ec2.GatewayVpcEndpointAwsService.S3.name);
+    codeDownloadLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
+    codeDownloadLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrEndpoint);
+    codeDownloadLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
+    codeDownloadLambdaFunction.addEnvironment('OPENSEARCH_DNS', codeGraphOpenSearch.attrDomainEndpoint);
+    
 
     const searchCodeGraphLambdaFunction = new lambda.Function(this, 'SearchCodeGraphFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset('./lambda/searchCodeGraph'),
       handler: 'index.handler',
-      role: createCodeGraphSearchLambdaRole,
+      role: codeGraphSearchLambdaRole,
       timeout: cdk.Duration.seconds(10),
       vpc: vpc,
       vpcSubnets: {
@@ -187,12 +191,12 @@ export class CodeGraphSearchStack extends cdk.Stack {
 
     // Define the API Gateway
     const api = new apigateway.LambdaRestApi(this, 'CodeGraphApi', {
-      handler: createCodeGraphLambdaFunction,
+      handler: codeDownloadLambdaFunction,
       proxy: false,
     });
 
     const createCodeGraphResource = api.root.addResource('createCodeGraph');
-    createCodeGraphResource.addMethod('POST', new apigateway.LambdaIntegration(createCodeGraphLambdaFunction));
+    createCodeGraphResource.addMethod('POST', new apigateway.LambdaIntegration(codeDownloadLambdaFunction));
 
     const searchCodeGraphResource = api.root.addResource('searchCodeGraph');
     searchCodeGraphResource.addMethod('GET', new apigateway.LambdaIntegration(searchCodeGraphLambdaFunction));

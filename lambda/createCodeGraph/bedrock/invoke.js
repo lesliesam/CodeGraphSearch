@@ -54,5 +54,3 @@ async function invokeTitanEmbedding(message) {
 }
 
 module.exports = { invokeCommand, invokeTitanEmbedding }
-
-// invokeTitanEmbedding('hello');
