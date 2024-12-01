@@ -34,10 +34,6 @@ export class CodeGraphSearchStack extends cdk.Stack {
     vpc.addInterfaceEndpoint('BedrockEndpoint', {
       service: ec2.InterfaceVpcEndpointAwsService.BEDROCK_RUNTIME,
     });
-    vpc.addInterfaceEndpoint('SQSEndpoint', {
-      service: ec2.InterfaceVpcEndpointAwsService.SQS,
-      privateDnsEnabled: true,
-    });
 
     const neptuneSecurityGroup = new ec2.SecurityGroup(this, 'NeptuneSecurityGroup', {
       vpc,
