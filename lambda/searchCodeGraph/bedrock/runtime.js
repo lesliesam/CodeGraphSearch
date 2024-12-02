@@ -1,7 +1,9 @@
 const { BedrockRuntimeClient, InvokeModelCommand } = require("@aws-sdk/client-bedrock-runtime");
+const { sleep } = require("../utils/utils");
+const { BEDROCK_API_PAUSE_TIME } = require("../constants");
+const { ThrottlingException } = require("@aws-sdk/client-bedrock-runtime");
 
 require('dotenv').config();
-
 const client = new BedrockRuntimeClient({
     endpoint: `https://${process.env.PRIVATE_BEDROCK_DNS}`
 });
@@ -29,7 +31,13 @@ async function invokeCommand(systemPrompt, messages) {
         return responseBody.content[0].text;
     } catch (error) {
         console.error("Error invoking Bedrock:", error);
-        throw error;
+        if (error instanceof ThrottlingException) {
+            await sleep(BEDROCK_API_PAUSE_TIME);
+            console.log(`Sleep for ${BEDROCK_API_PAUSE_TIME} milli-seconds and retry...`);
+            await invokeCommand(systemPrompt, messages);
+        } else {
+            throw error;
+        }
     }
 }
 
