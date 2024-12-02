@@ -1,30 +1,53 @@
-const { listAll } = require('./neptune/listTop');
+const { getFunctionCaller, getFunctionCallee } = require('./neptune/readWithCypher');
 const { upsertClassMetaRag, semanticSearch } = require('./opensearch/codeMetaRag');
-const { invokeTitanEmbedding } = require('./bedrock/invoke');
+const { invokeTitanEmbedding } = require('./bedrock/runtime');
 
-const { CLASS_META_DATA } = require('./constants');
+const { CLASS_META_DATA, FUNC_META_DATA } = require('./constants');
 
 async function handler(event, context) {
     try {
-        
-        const result = await listAll();
-        await upsertClassMetaRag('ClassA', 'PathA', 'I like apple.');
-        const vector = await invokeTitanEmbedding('I want to eat apple.');
-        console.log(vector.length);
-        const searchResult = await semanticSearch(CLASS_META_DATA, vector);
-        
+        const { httpMethod, queryStringParameters } = event;
+        let responseBody;
+        if (httpMethod === 'GET') {
+            const command = queryStringParameters.command;
+            switch (command) {
+                case 'pathSummary':
+                    responseBody = 'In development...';
+                    break;
+                case 'queryGraph':
+                    const index_name = queryStringParameters.index;
+                    const queryContent = queryStringParameters.query;
+                    console.log(`index_name: ${index_name}, queryContent: ${queryContent}`);
+
+                    const vector = await invokeTitanEmbedding(queryContent);
+                    const results = await semanticSearch(index_name, vector, 5);
+
+                    console.log(`results: ${JSON.stringify(results, null, 2)}`);
+                    if (index_name === FUNC_META_DATA) {
+                        for (const result of results) {
+                            result.caller = await getFunctionCaller(result._source.path, result._source.name);
+                            result.callto = await getFunctionCallee(result._source.path, result._source.name);
+                        }
+                    }
+                    responseBody = results;
+                    break;
+                default:
+                    responseBody = 'Unsupported command';
+            }
+        } else {
+            throw new Error('Invalid HTTP method');
+        }
+
         return {
             statusCode: 200,
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type,Authorization'
             },
             body: JSON.stringify({
-                message: 'Code Graph Search function.',
-                embedding: result,
-                searchResult
+                responseBody
             })
         };
     } catch (error) {

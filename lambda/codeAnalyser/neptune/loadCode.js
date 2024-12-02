@@ -85,7 +85,7 @@ async function upsertClassGraph(classObjList) {
 
         // Upsert the class Obj.
         const classPropertyMap = classObj.Class.Properties ? new Map(classObj.Class.Properties.flatMap(obj => Object.entries(obj))) : new Map();
-        await upsertClass(classObj.Class.Name, classObj.Class.Path, classPropertyMap);
+        await upsertClass(classObj.Class.Name, classObj.Class.Path, classObj.Class.FileExtension, classPropertyMap);
         await upsertEdge(EDGE_CONTAINS, mPathObjMap.get(classObj.Class.Path), mClassObjMap.get(fullClassName));
         if (classPropertyMap.get("extends") != null) {
             const parentClass = classPropertyMap.get("extends");
@@ -113,7 +113,7 @@ async function upsertClassGraph(classObjList) {
             }
             console.log(`Processing on outer dependency from ${fullClassName}/${call.From} to ${call.To.Path}/${call.To.ClassName}/${call.To.FunctionName}`);
             await upsertPath(call.To.Path);
-            await upsertClass(call.To.ClassName, call.To.Path, new Map());
+            await upsertClass(call.To.ClassName, call.To.Path, classObj.Class.FileExtension, new Map());
             await upsertEdge(EDGE_CONTAINS, mPathObjMap.get(call.To.Path), mClassObjMap.get(`${call.To.Path}/${call.To.ClassName}`));
             await upsertFunction(call.To.FunctionName, `${call.To.Path}/${call.To.ClassName}`, new Map());
             await upsertEdge(EDGE_CONTAINS, mClassObjMap.get(`${call.To.Path}/${call.To.ClassName}`), mFunctionObjMap.get(`${call.To.Path}/${call.To.ClassName}/${call.To.FunctionName}`));
@@ -163,12 +163,13 @@ async function upsertPathDescription(name, fullPath, description) {
     ).next();
 }
 
-async function upsertClass(name, path, params = new Map()) {
+async function upsertClass(name, path, fileExtension, params = new Map()) {
     let result = g.V().hasLabel(TYPE_CLASS).has('name', name).has('path', path).fold().coalesce(
         __.unfold(),
         __.addV(TYPE_CLASS).
             property(cardinality.single, 'name', name).
-            property(cardinality.single, 'path', path)
+            property(cardinality.single, 'path', path).
+            property(cardinality.single, 'file_extension', fileExtension)
     )
     for (const [key, value] of params) {
         result = result.property(cardinality.single, key, value);

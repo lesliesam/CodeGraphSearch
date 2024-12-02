@@ -9,7 +9,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "installAll": "node scripts/install-lambda-deps.js",
-    "deploy": "npm run installAll && cdk bootstrap && cdk deploy --require-approval never",
+    "deployAll": "npm run installAll && cdk bootstrap && cdk deploy --require-approval never",
     "cdk": "cdk"
   },
   "devDependencies": {
