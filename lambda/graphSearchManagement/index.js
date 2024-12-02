@@ -1,12 +1,10 @@
-const { deleteAll } = require('./neptune/clear');
-const { deleteIndex } = require('./embedding/codeMetaRag');
+const { deleteAll } = require('libs/neptune/clear');
+const { deleteIndex } = require('libs/embedding/codeMetaRag');
 const {
     PATH_META_DATA,
     CLASS_META_DATA,
     FUNC_META_DATA,
-} = require('./constants');
-
-require('dotenv').config();
+} = require('libs/constants');
 
 
 async function handler(event, context) {

@@ -1,8 +1,8 @@
-const { getFunctionCaller, getFunctionCallee } = require('./neptune/readWithCypher');
-const { semanticSearch } = require('./opensearch/codeMetaRag');
-const { invokeTitanEmbedding } = require('./bedrock/runtime');
+const { getFunctionCaller, getFunctionCallee } = require('libs/neptune/readWithCypher');
+const { semanticSearch } = require('libs/opensearch/codeMetaRag');
+const { invokeTitanEmbedding } = require('libs/bedrock/runtime');
 
-const { FUNC_META_DATA } = require('./constants');
+const { FUNC_META_DATA } = require('libs/constants');
 
 async function handler(event, context) {
     try {

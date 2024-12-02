@@ -171,7 +171,6 @@ export class CodeGraphSearchStack extends cdk.Stack {
     });
 
     // Define the lambda functions
-    // Todo Add lambda Layers for code reuse.
     // 1. Code Downloader Lambda, out of VPC.
     const codeDownloadLambdaFunction = new lambda.Function(this, 'CodeDownloaderFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,

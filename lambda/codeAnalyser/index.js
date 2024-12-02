@@ -1,12 +1,12 @@
 const { S3Client, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
 
-const { scanRepository } = require('./repositoryReader');
-const { processCodeMeta } = require('./neptune/loadCode');
-const { generateClassSummary, generatePathSummary } = require('./embedding/summarize');
+const { scanRepository } = require('libs/repositoryReader');
+const { processCodeMeta } = require('libs/neptune/loadCode');
+const { generateClassSummary, generatePathSummary } = require('libs/embedding/summarize');
 const path = require('path');
 const fs = require('fs');
-const { findFiles } = require('./utils/utils');
-let { BEDROCK_API_PAUSE_TIME } = require('./constants');
+const { findFiles } = require('libs/utils/utils');
+let { BEDROCK_API_PAUSE_TIME } = require('libs/constants');
 
 require('dotenv').config();
 const s3Client = new S3Client({
