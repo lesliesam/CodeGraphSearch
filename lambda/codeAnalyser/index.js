@@ -9,9 +9,7 @@ const { findFiles } = require('libs/utils/utils');
 let { BEDROCK_API_PAUSE_TIME } = require('libs/constants');
 
 require('dotenv').config();
-const s3Client = new S3Client({
-    // endpoint: `https://${process.env.S3_ENDPOINT}`
-});
+const s3Client = new S3Client({});
 const bucketName = `${process.env.S3_BUCKET_NAME}`;
 
 async function downloadS3Files(bucketName, folderPath, localPath) {
