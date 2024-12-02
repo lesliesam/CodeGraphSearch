@@ -56,10 +56,10 @@ export class CodeGraphSearchStack extends cdk.Stack {
 
     // Define the SQS
     const codeDownloadDlq = new sqs.Queue(this, 'Code Download DLQ', {
-      visibilityTimeout: cdk.Duration.seconds(600),
+      visibilityTimeout: cdk.Duration.seconds(900),
     });
     const codeDownloadQueue = new sqs.Queue(this, 'Code Download Queue', {
-      visibilityTimeout: cdk.Duration.seconds(600),
+      visibilityTimeout: cdk.Duration.seconds(900),
       deadLetterQueue: {
         queue: codeDownloadDlq,
         maxReceiveCount: 10,
@@ -190,7 +190,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
       code: lambda.Code.fromAsset('./lambda/codeAnalyser'),
       handler: 'index.handler',
       role: codeGraphSearchLambdaRole,
-      timeout: cdk.Duration.minutes(10),
+      timeout: cdk.Duration.minutes(15),
       vpc: vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,

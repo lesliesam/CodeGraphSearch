@@ -1,12 +1,73 @@
+const { S3Client, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
 
+const { scanRepository } = require('./repositoryReader');
+const { processCodeMeta } = require('./neptune/loadCode');
+const { generateClassSummary, generatePathSummary } = require('./embedding/summarize');
+const path = require('path');
+const fs = require('fs');
+const { findFiles } = require('./utils/utils');
 
+require('dotenv').config();
+const s3Client = new S3Client({
+    // endpoint: `https://${process.env.S3_ENDPOINT}`
+});
+const bucketName = `${process.env.S3_BUCKET_NAME}`;
+
+async function downloadS3Files(bucketName, folderPath, localPath) {
+    const listParams = {
+        Bucket: bucketName,
+        Prefix: folderPath,
+    };
+
+    const listObjectsCommand = new ListObjectsV2Command(listParams);
+    const listResponse = await s3Client.send(listObjectsCommand);
+
+    if (!listResponse.Contents) {
+        console.log(`No objects found in ${bucketName}/${folderPath}`);
+        return;
+    }
+
+    for (const object of listResponse.Contents) {
+        const objectKey = object.Key;
+        const downloadPath = path.join(localPath, objectKey.replace(folderPath, ""));
+
+        const getObjectParams = {
+            Bucket: bucketName,
+            Key: objectKey,
+        };
+
+        const getObjectCommand = new GetObjectCommand(getObjectParams);
+        const response = await s3Client.send(getObjectCommand);
+
+        fs.mkdirSync(path.dirname(downloadPath), { recursive: true });
+        const fileStream = fs.createWriteStream(downloadPath);
+        response.Body.pipe(fileStream);
+    }
+}
+
+async function processCodeSource(codePathRoot) {
+    const localFolder = `/tmp/${codePathRoot}`;
+
+    await downloadS3Files(bucketName, codePathRoot, localFolder);
+    // Use LLM to parse the file structure
+    const resFolder = await scanRepository(localFolder);
+    // Save the file structure to Neptune
+    await processCodeMeta(resFolder);
+    // Summarize the Class description and upload to Neptune and Opensearch
+    await generateClassSummary(resFolder);
+    // Summarize the Path description and upload to Neptune and Opensearch
+    await generatePathSummary();
+}
 
 async function handler(event, context) {
+    console.log(`event: ${JSON.stringify(event)}, context: ${JSON.stringify(context)}`);
     try {
-        
-        console.log(`event: ${JSON.stringify(event)}, context: ${JSON.stringify(context)}`);
+        const messageBody = event.Records[0].body;
+        if (messageBody) {
+            const { codePathRoot } = JSON.parse(messageBody);
 
-        
+            await processCodeSource(codePathRoot);
+        }
     } catch (error) {
         console.error('Error:', error);
     }
