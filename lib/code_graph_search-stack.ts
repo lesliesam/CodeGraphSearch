@@ -211,7 +211,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
       })
     );
 
-    // Code Search Lambda, in the VPC.
+    // 3. Code Search Lambda, in the VPC.
     const searchCodeGraphLambdaFunction = new lambda.Function(this, 'SearchCodeGraphFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset('./lambda/searchCodeGraph'),
@@ -231,6 +231,25 @@ export class CodeGraphSearchStack extends cdk.Stack {
     searchCodeGraphLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
     searchCodeGraphLambdaFunction.addEnvironment('OPENSEARCH_DNS', codeGraphOpenSearch.attrDomainEndpoint);
 
+
+    // 4. Graph Search Management Lambda, in the VPC.
+    const graphSearchManagementLambdaFunction = new lambda.Function(this, 'GraphSearchManagementFunction', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      code: lambda.Code.fromAsset('./lambda/graphSearchManagement'),
+      handler: 'index.handler',
+      role: codeGraphSearchLambdaRole,
+      timeout: cdk.Duration.seconds(10),
+      vpc: vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+      },
+      memorySize: 128,
+    });
+    graphSearchManagementLambdaFunction.addEnvironment('REGION', this.region);
+    graphSearchManagementLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrReadEndpoint);
+    graphSearchManagementLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
+    graphSearchManagementLambdaFunction.addEnvironment('OPENSEARCH_DNS', codeGraphOpenSearch.attrDomainEndpoint);
+
     // Define the API Gateway
     const api = new apigateway.LambdaRestApi(this, 'CodeGraphApi', {
       handler: codeDownloadLambdaFunction,
@@ -242,5 +261,8 @@ export class CodeGraphSearchStack extends cdk.Stack {
 
     const searchCodeGraphResource = api.root.addResource('searchCodeGraph');
     searchCodeGraphResource.addMethod('GET', new apigateway.LambdaIntegration(searchCodeGraphLambdaFunction));
+
+    const graphSearchManagementResource = api.root.addResource('graphSearchManagement');
+    graphSearchManagementResource.addMethod('POST', new apigateway.LambdaIntegration(graphSearchManagementLambdaFunction));
   }
 }

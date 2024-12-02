@@ -135,7 +135,7 @@ async function pathDescriptionSummary(data, fullPath, name) {
     llmParams += `Please summarize the folder's functionality. And please keep it as simple as possible.\n`
 
     // Refine the path description according to its contents.
-    await sleep(2000);
+    await sleep(3000);
     const pathDescription = await invokeCommand(pathDescriptionSummaryPrompt, [
         {
             role: "user",
