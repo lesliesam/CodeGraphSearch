@@ -6,6 +6,7 @@ const { generateClassSummary, generatePathSummary } = require('./embedding/summa
 const path = require('path');
 const fs = require('fs');
 const { findFiles } = require('./utils/utils');
+let { BEDROCK_API_PAUSE_TIME } = require('./constants');
 
 require('dotenv').config();
 const s3Client = new S3Client({
@@ -45,10 +46,18 @@ async function downloadS3Files(bucketName, folderPath, localPath) {
     }
 }
 
-async function processCodeSource(codePathRoot) {
-    const localFolder = `/tmp/${codePathRoot}`;
-
+async function processCodeSource(codePathRoot, subFolder, bedrockAPIPauseTime) {
+    let localFolder = `/tmp/${codePathRoot}`;
+    // Download the whole repository to local.
     await downloadS3Files(bucketName, codePathRoot, localFolder);
+
+    if (subFolder && subFolder.length > 0) {
+        localFolder += `/${subFolder}`;
+    }
+    if (bedrockAPIPauseTime) {
+        BEDROCK_API_PAUSE_TIME = bedrockAPIPauseTime;
+    }
+    
     // Use LLM to parse the file structure
     const resFolder = await scanRepository(localFolder);
     // Save the file structure to Neptune
@@ -56,7 +65,7 @@ async function processCodeSource(codePathRoot) {
     // Summarize the Class description and upload to Neptune and Opensearch
     await generateClassSummary(resFolder);
     // Summarize the Path description and upload to Neptune and Opensearch
-    await generatePathSummary();
+    await generatePathSummary(localFolder);
 }
 
 async function handler(event, context) {
@@ -64,9 +73,9 @@ async function handler(event, context) {
     try {
         const messageBody = event.Records[0].body;
         if (messageBody) {
-            const { codePathRoot } = JSON.parse(messageBody);
+            const { codePathRoot, subFolder, bedrockAPIPauseTime } = JSON.parse(messageBody);
 
-            await processCodeSource(codePathRoot);
+            await processCodeSource(codePathRoot, subFolder, bedrockAPIPauseTime);
         }
     } catch (error) {
         console.error('Error:', error);

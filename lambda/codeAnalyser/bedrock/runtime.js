@@ -1,5 +1,8 @@
 const { BedrockRuntimeClient, InvokeModelCommand } = require("@aws-sdk/client-bedrock-runtime");
 
+const { sleep } = require('../utils/utils');
+const { BEDROCK_API_PAUSE_TIME } = require('../constants');
+
 require('dotenv').config();
 const client = new BedrockRuntimeClient({
     endpoint: `https://${process.env.PRIVATE_BEDROCK_DNS}`

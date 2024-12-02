@@ -92,9 +92,16 @@ async function handler(event, context) {
                 throw new Error('Missing required parameters');
             }
 
+            const subFolder = queryStringParameters.subFolder;
+            const bedrockAPIPauseTime = queryStringParameters.bedrockAPIPauseTime;
+
             const { downloadDir, uuid } = await downloadCode(gitUrl, branch);
             await uploadFolder(downloadDir, uuid);
-            const sendMessageResult = await invokeSQS(queueUrl, { codePathRoot: uuid });
+            const sendMessageResult = await invokeSQS(queueUrl, {
+                codePathRoot: uuid,
+                subFolder,
+                bedrockAPIPauseTime
+            });
             console.log('Message sent to SQS:', sendMessageResult);
 
         } else {

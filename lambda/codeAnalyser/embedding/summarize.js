@@ -6,6 +6,7 @@ const { upsertPathDescription } = require('../neptune/loadCode');
 const { upsertPathMetaRag, upsertClassMetaRag } = require('./codeMetaRag');
 const { classDescriptionSummaryPrompt, pathDescriptionSummaryPrompt } = require('../bedrock/prompt');
 const { sleep } = require('../utils/utils');
+const { BEDROCK_API_PAUSE_TIME } = require('../constants');
 
 const SUMMARY_FILE = '/tmp/summary.json';
 const TO_BE_FILLED = '<To_be_filled/>';
@@ -53,7 +54,7 @@ async function generateClassSummary(pathRoot) {
 
             // Add the Class data obj to the data tree
             putClassObj(data, path, className, classObj);
-            await sleep(2000);
+            await sleep(BEDROCK_API_PAUSE_TIME);
 
         } catch (error) {
             console.error(`Error parsing file ${file}: ${error}`);
@@ -66,11 +67,14 @@ async function generateClassSummary(pathRoot) {
     fs.writeFileSync(SUMMARY_FILE, JSON.stringify(data, null, 2));
 }
 
-async function generatePathSummary() {
+async function generatePathSummary(rootFolder) {
+    // get the name of the root folder
+    const rootFolderName = path.basename(rootFolder);
+    
     try {
         const data = JSON.parse(fs.readFileSync(SUMMARY_FILE));
 
-        await pathDescriptionSummary(data.src, 'src', 'src');
+        await pathDescriptionSummary(data.rootFolderName, rootFolderName, rootFolderName);
 
         fs.writeFileSync(SUMMARY_FILE, JSON.stringify(data, null, 2));
 
@@ -135,7 +139,7 @@ async function pathDescriptionSummary(data, fullPath, name) {
     llmParams += `Please summarize the folder's functionality. And please keep it as simple as possible.\n`
 
     // Refine the path description according to its contents.
-    await sleep(3000);
+    await sleep(BEDROCK_API_PAUSE_TIME);
     const pathDescription = await invokeCommand(pathDescriptionSummaryPrompt, [
         {
             role: "user",
