@@ -62,19 +62,16 @@ async function generateClassSummary(pathRoot) {
         }
     }
 
-    data.src = data.Packages.src;
-    delete data.Packages;
     fs.writeFileSync(SUMMARY_FILE, JSON.stringify(data, null, 2));
 }
 
-async function generatePathSummary(rootFolder) {
-    // get the name of the root folder
-    const rootFolderName = path.basename(rootFolder);
-    
+async function generatePathSummary() {
     try {
         const data = JSON.parse(fs.readFileSync(SUMMARY_FILE));
 
-        await pathDescriptionSummary(data.rootFolderName, rootFolderName, rootFolderName);
+        // There should be only 1 root in the data tree.
+        const root = Object.keys(data.Packages)[0];
+        await pathDescriptionSummary(data.Packages[root], root, root);
 
         fs.writeFileSync(SUMMARY_FILE, JSON.stringify(data, null, 2));
 
