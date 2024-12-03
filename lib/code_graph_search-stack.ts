@@ -229,7 +229,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
       code: lambda.Code.fromAsset('./lambda/codeSummarizer'),
       handler: 'index.handler',
       role: codeGraphSearchLambdaRole,
-      timeout: cdk.Duration.minutes(10),
+      timeout: cdk.Duration.minutes(15),
       vpc: vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,

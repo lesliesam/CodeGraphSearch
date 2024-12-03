@@ -34,7 +34,7 @@ async function invokeCommand(systemPrompt, messages) {
         if (error instanceof ThrottlingException) {
             await sleep(BEDROCK_API_PAUSE_TIME);
             console.log(`Sleep for ${BEDROCK_API_PAUSE_TIME} milli-seconds and retry...`);
-            await invokeCommand(systemPrompt, messages);
+            return await invokeCommand(systemPrompt, messages);
         } else {
             throw error;
         }
@@ -54,9 +54,14 @@ async function invokeTitanEmbedding(message) {
         const response = await client.send(command);
         const responseBody = JSON.parse(new TextDecoder().decode(response.body));
         return responseBody.embedding;
-    } catch (err) {
-        console.error(err);
-        console.error(err.stack);
+    } catch (error) {
+        if (error instanceof ThrottlingException) {
+            await sleep(BEDROCK_API_PAUSE_TIME);
+            console.log(`Sleep for ${BEDROCK_API_PAUSE_TIME} milli-seconds and retry...`);
+            return await invokeTitanEmbedding(message);
+        } else {
+            throw error;
+        }
     }
 }
 
