@@ -1,12 +1,12 @@
 
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
+
+const { uploadFolderToS3, CODE_SOURCE_BUCKET_PREFIX } = require('awslibs/s3');
+const { invokeSQS } = require('awslibs/sqs');
 const gitDownloader = require('download-git-repo');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 
-const s3Client = new S3Client();
 const bucketName = `${process.env.S3_BUCKET_NAME}`;
 const queueUrl = process.env.CODE_DOWNLOAD_QUEUE_URL;
 
@@ -42,45 +42,6 @@ async function downloadCode(gitUrl, branch) {
     })
 }
 
-async function invokeSQS(queueUrl, message) {
-    const sqsClient = new SQSClient();
-    const sendMessageResult = await sqsClient.send(new SendMessageCommand({
-        QueueUrl: queueUrl,
-        MessageBody: JSON.stringify(message)
-    }));
-
-    return sendMessageResult;
-}
-
-async function uploadFolder(folderPath, bucketPrefix = '') {
-    const files = fs.readdirSync(folderPath);
-
-    for (const file of files) {
-        const filePath = path.join(folderPath, file);
-        const stats = fs.statSync(filePath);
-
-        if (stats.isDirectory()) {
-            await uploadFolder(filePath, path.join(bucketPrefix, file));
-        } else {
-            const fileStream = fs.createReadStream(filePath);
-            const key = path.join(bucketPrefix, file);
-
-            const uploadParams = {
-                Bucket: bucketName,
-                Body: fileStream,
-                Key: key,
-            };
-
-            try {
-                const data = await s3Client.send(new PutObjectCommand(uploadParams));
-                console.log(`File uploaded successfully. ${file}`);
-            } catch (err) {
-                console.log('Error', err);
-            }
-        }
-    }
-}
-
 async function handler(event, context) {
     try {
         const { httpMethod, queryStringParameters } = event;
@@ -96,9 +57,10 @@ async function handler(event, context) {
             const bedrockAPIPauseTime = queryStringParameters.bedrockAPIPauseTime;
 
             const { downloadDir, uuid } = await downloadCode(gitUrl, branch);
-            await uploadFolder(downloadDir, uuid);
+            await uploadFolderToS3(bucketName, downloadDir, `${CODE_SOURCE_BUCKET_PREFIX}/${uuid}`);
+
             const sendMessageResult = await invokeSQS(queueUrl, {
-                codePathRoot: uuid,
+                uuid,
                 subFolder,
                 bedrockAPIPauseTime
             });
@@ -137,10 +99,3 @@ async function handler(event, context) {
 }
 
 exports.handler = handler;
-
-
-// async function download(gitUrl, branch) {
-//     const { downloadDir, uuid } = await downloadCode(gitUrl, branch);
-//     await uploadFolder(downloadDir, uuid);
-// }
-// download('https://github.com/yankils/hello-world.git', 'master');

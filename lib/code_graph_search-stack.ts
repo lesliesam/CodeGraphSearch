@@ -34,6 +34,9 @@ export class CodeGraphSearchStack extends cdk.Stack {
     vpc.addInterfaceEndpoint('BedrockEndpoint', {
       service: ec2.InterfaceVpcEndpointAwsService.BEDROCK_RUNTIME,
     });
+    vpc.addInterfaceEndpoint('SQSEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.SQS,
+    });
 
     const neptuneSecurityGroup = new ec2.SecurityGroup(this, 'NeptuneSecurityGroup', {
       vpc,
@@ -62,6 +65,17 @@ export class CodeGraphSearchStack extends cdk.Stack {
       visibilityTimeout: cdk.Duration.seconds(900),
       deadLetterQueue: {
         queue: codeDownloadDlq,
+        maxReceiveCount: 10,
+      },
+    });
+
+    const codeReaderDlq = new sqs.Queue(this, 'Code Reader DLQ', {
+      visibilityTimeout: cdk.Duration.seconds(900),
+    });
+    const codeReaderQueue = new sqs.Queue(this, 'Code Reader Queue', {
+      visibilityTimeout: cdk.Duration.seconds(900),
+      deadLetterQueue: {
+        queue: codeReaderDlq,
         maxReceiveCount: 10,
       },
     });
@@ -184,10 +198,10 @@ export class CodeGraphSearchStack extends cdk.Stack {
     codeDownloadLambdaFunction.addEnvironment('CODE_DOWNLOAD_QUEUE_URL', codeDownloadQueue.queueUrl);
     codeDownloadQueue.grantSendMessages(codeDownloadLambdaFunction);
 
-    // 2. Code Analyser Lambda, in the VPC.
-    const codeAnalyseLambdaFunction = new lambda.Function(this, 'CodeAnalyseFunction', {
+    // 2. Code Reader Lambda, in the VPC.
+    const codeReaderLambdaFunction = new lambda.Function(this, 'CodeReaderFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
-      code: lambda.Code.fromAsset('./lambda/codeAnalyser'),
+      code: lambda.Code.fromAsset('./lambda/codeReader'),
       handler: 'index.handler',
       role: codeGraphSearchLambdaRole,
       timeout: cdk.Duration.minutes(15),
@@ -197,21 +211,46 @@ export class CodeGraphSearchStack extends cdk.Stack {
       },
       memorySize: 512,
     });
-    codeAnalyseLambdaFunction.addEnvironment('REGION', this.region);
-    codeAnalyseLambdaFunction.addEnvironment('S3_ENDPOINT', ec2.GatewayVpcEndpointAwsService.S3.name);
-    codeAnalyseLambdaFunction.addEnvironment('S3_BUCKET_NAME', codeDownloadBucket.bucketName);
-    codeAnalyseLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
-    codeAnalyseLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrReadEndpoint);
-    codeAnalyseLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
-    codeAnalyseLambdaFunction.addEnvironment('OPENSEARCH_DNS', codeGraphOpenSearch.attrDomainEndpoint);
+    codeReaderLambdaFunction.addEnvironment('REGION', this.region);
+    codeReaderLambdaFunction.addEnvironment('S3_BUCKET_NAME', codeDownloadBucket.bucketName);
+    codeReaderLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
+    codeReaderLambdaFunction.addEnvironment('CODE_READER_QUEUE_URL', codeReaderQueue.queueUrl);
 
-    codeAnalyseLambdaFunction.addEventSource(
+    codeReaderQueue.grantSendMessages(codeReaderLambdaFunction);
+    codeReaderLambdaFunction.addEventSource(
       new lambdaEventSources.SqsEventSource(codeDownloadQueue, {
-        batchSize: 10, // Maximum batch size for SQS events
+        batchSize: 10,
       })
     );
 
-    // 3. Code Search Lambda, in the VPC.
+    // 3. Code Summarizer Lambda, in the VPC.
+    const codeSummarizerLambdaFunction = new lambda.Function(this, 'CodeSummarizerFunction', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      code: lambda.Code.fromAsset('./lambda/codeSummarizer'),
+      handler: 'index.handler',
+      role: codeGraphSearchLambdaRole,
+      timeout: cdk.Duration.minutes(10),
+      vpc: vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+      },
+      memorySize: 512,
+    });
+    codeSummarizerLambdaFunction.addEnvironment('REGION', this.region);
+    codeSummarizerLambdaFunction.addEnvironment('S3_BUCKET_NAME', codeDownloadBucket.bucketName);
+    codeSummarizerLambdaFunction.addEnvironment('PRIVATE_BEDROCK_DNS', `bedrock-runtime.${this.region}.amazonaws.com`);
+    codeSummarizerLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_DNS', neptuneCluster.attrReadEndpoint);
+    codeSummarizerLambdaFunction.addEnvironment('PRIVATE_NEPTUNE_PORT', neptuneCluster.attrPort);
+    codeSummarizerLambdaFunction.addEnvironment('OPENSEARCH_DNS', codeGraphOpenSearch.attrDomainEndpoint);
+
+    codeSummarizerLambdaFunction.addEventSource(
+      new lambdaEventSources.SqsEventSource(codeReaderQueue, {
+        batchSize: 10,
+      })
+    );
+
+
+    // Code Search Lambda, in the VPC.
     const searchCodeGraphLambdaFunction = new lambda.Function(this, 'SearchCodeGraphFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset('./lambda/searchCodeGraph'),

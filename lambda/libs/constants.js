@@ -12,6 +12,10 @@ const FUNC_META_DATA = 'function_metadata';
 
 let BEDROCK_API_PAUSE_TIME = 2500;
 
+function setBedrockAPIPauseTime(time) {
+  BEDROCK_API_PAUSE_TIME = time;
+}
+
 module.exports = {
   TYPE_PATH,
   TYPE_CLASS,
@@ -22,5 +26,6 @@ module.exports = {
   PATH_META_DATA,
   CLASS_META_DATA,
   FUNC_META_DATA,
-  BEDROCK_API_PAUSE_TIME
+  BEDROCK_API_PAUSE_TIME,
+  setBedrockAPIPauseTime
 }
