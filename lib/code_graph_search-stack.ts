@@ -8,7 +8,11 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as s3Deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as path from "path";
 
 export class CodeGraphSearchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -55,6 +59,55 @@ export class CodeGraphSearchStack extends cdk.Stack {
     const codeDownloadBucket = new s3.Bucket(this, 'Code Download Bucket', {
       bucketName: 'code-download-bucket',
       versioned: true,
+    });
+
+    const clientWebsiteBucket = new s3.Bucket(this, 'Code Graph Website Bucket', {
+      bucketName: 'code-graph-website',
+      websiteIndexDocument: 'index.html',
+      websiteErrorDocument: 'index.html',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    clientWebsiteBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ServicePrincipal('cloudfront.amazonaws.com')],
+        actions: ['s3:GetObject'],
+        resources: [`${clientWebsiteBucket.bucketArn}/*`],
+      })
+    );
+
+    const distribution = new cloudfront.Distribution(this, "Code Graph Website Distribution", {
+      defaultBehavior: {
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        compress: true,
+        origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessIdentity(clientWebsiteBucket, {
+          originAccessIdentity: new cloudfront.OriginAccessIdentity(this, 'CloudFrontOAI'),
+        } ),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+      defaultRootObject: "index.html",
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 403,
+          responsePagePath: "/index.html",
+          ttl: cdk.Duration.minutes(30),
+        },
+      ],
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2019,
+    });
+
+    new cdk.CfnOutput(this, "CfnOutCloudFrontUrl", {
+      value: `https://${distribution.distributionDomainName}`,
+      description: "Website CloudFront URL",
+    });
+
+    new s3Deploy.BucketDeployment(this, 'WebsiteBucketDeployment', {
+      sources: [
+        s3Deploy.Source.asset(path.join(__dirname, '../client/dist')),
+      ],
+      destinationBucket: clientWebsiteBucket
     });
 
     // Define the SQS

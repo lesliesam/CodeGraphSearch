@@ -8,8 +8,9 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
+    "buildClient": "cd client && npm install && npm run build",
     "installAll": "node scripts/install-lambda-deps.js",
-    "deployAll": "npm run installAll && cdk bootstrap && cdk deploy --require-approval never",
+    "deployAll": "npm run installAll && npm run buildClient && cdk bootstrap && cdk deploy --require-approval never",
     "cdk": "cdk"
   },
   "devDependencies": {
