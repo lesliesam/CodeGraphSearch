@@ -351,21 +351,21 @@ export class CodeGraphSearchStack extends cdk.Stack {
     const createCodeGraphResource = api.root.addResource('createCodeGraph');
     createCodeGraphResource.addMethod('POST', new apigateway.LambdaIntegration(codeDownloadLambdaFunction));
     new cdk.CfnOutput(this, 'CodeGraphApiEndpoint', {
-      value: api.url,
+      value: `${api.url}/createCodeGraph`,
       description: '[POST] Endpoint for the create Code Graph API',
     });
 
     const searchCodeGraphResource = api.root.addResource('searchCodeGraph');
     searchCodeGraphResource.addMethod('GET', new apigateway.LambdaIntegration(searchCodeGraphLambdaFunction));
     new cdk.CfnOutput(this, 'SearchCodeGraphApiEndpoint', {
-      value: api.url,
+      value: `${api.url}/searchCodeGraph`,
       description: '[GET] Endpoint for the Search Code Graph API',
     });
 
     const graphSearchManagementResource = api.root.addResource('graphSearchManagement');
     graphSearchManagementResource.addMethod('POST', new apigateway.LambdaIntegration(graphSearchManagementLambdaFunction));
     new cdk.CfnOutput(this, 'GraphSearchManagementApiEndpoint', {
-      value: api.url,
+      value: `${api.url}/graphSearchManagement`,
       description: '[POST] for the management of the Code Graph API',
     });
   }

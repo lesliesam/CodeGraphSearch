@@ -13,6 +13,9 @@
       <div class="nav-item" :class="{ active: currentPage === 'update' }" @click="$emit('page-change', 'update')">
         Update Graph
       </div>
+      <div class="nav-item" :class="{ active: currentPage === 'settings' }" @click="$emit('page-change', 'settings')">
+        Settings
+      </div>
     </nav>
   </div>
 </template>

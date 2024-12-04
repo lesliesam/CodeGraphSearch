@@ -1,6 +1,7 @@
 <template>
   <div class="search-view">
     <h1>Graph Search</h1>
+    <p class="api-url-display">Server API URL: {{ apiUrl }}</p>
     <form @submit.prevent="handleSearch" class="search-form">
       <div class="form-group">
         <input v-model="searchQuery" type="text" placeholder="Search..." class="form-control">
@@ -32,6 +33,7 @@ export default {
   name: 'SearchView',
   data() {
     return {
+      apiUrl: localStorage.getItem('apiUrl') || 'http://localhost:8080',
       searchQuery: '',
       selectedCategory: 'Package',
       apiResponse: null
@@ -39,7 +41,7 @@ export default {
   },
   methods: {
     handleSearch() {
-      const apiUrl = `https://zcb6iu42e5.execute-api.us-west-2.amazonaws.com/default/graphQuery?command=queryGraph&index=${this.selectedCategory}&query=${this.searchQuery}`
+      const apiUrl = `${this.apiUrl}/searchCodeGraph?command=queryGraph&index=${this.selectedCategory}&query=${this.searchQuery}`
       axios.get(apiUrl)
         .then(response => {
           this.apiResponse = JSON.stringify(response.data, null, 2)
@@ -53,6 +55,17 @@ export default {
 </script>
 
 <style scoped>
+.search-view {
+  padding: 20px;
+}
+
+.api-url-display {
+  color: #666;
+  font-size: 0.9em;
+  margin-top: -10px;
+  margin-bottom: 20px;
+}
+
 .search-form {
   max-width: 700px;
   margin: 0 auto;

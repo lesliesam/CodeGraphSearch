@@ -5,6 +5,7 @@
       <CreateView v-if="currentPage === 'create'" />
       <SearchView v-else-if="currentPage === 'search'" />
       <UpdateView v-else-if="currentPage === 'update'" />
+      <SettingsView v-else-if="currentPage === 'settings'" />
     </div>
   </div>
 </template>
@@ -14,6 +15,7 @@ import SidebarNav from './components/SidebarNav.vue'  // Updated import
 import CreateView from './views/CreateView.vue'
 import SearchView from './views/SearchView.vue'
 import UpdateView from './views/UpdateView.vue'
+import SettingsView from './views/SettingsView.vue'
 
 export default {
   name: 'App',
@@ -21,7 +23,8 @@ export default {
     SidebarNav,  // Updated component registration
     CreateView,
     SearchView,
-    UpdateView
+    UpdateView,
+    SettingsView
   },
   data() {
     return {
@@ -54,4 +57,3 @@ export default {
   box-sizing: border-box;
 }
 </style>
-
