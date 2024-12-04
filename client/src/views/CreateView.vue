@@ -13,6 +13,16 @@
         <input type="text" id="branchName" v-model="formData.branchName" placeholder="Enter Branch Name" required>
       </div>
 
+      <div class="form-group">
+        <label for="scanFolder">Scan Folder (optional):</label>
+        <input type="text" id="scanFolder" v-model="formData.scanFolder" placeholder="Enter scan folder path">
+      </div>
+
+      <div class="form-group">
+        <label for="bedrockPauseTime">Bedrock Pause Time:</label>
+        <input type="number" id="bedrockPauseTime" v-model="formData.bedrockPauseTime" placeholder="2500">
+      </div>
+
       <div class="checkbox-group">
         <h3>Analysis Options:</h3>
         <div class="checkbox-item">
@@ -55,20 +65,23 @@ export default {
       apiUrl: localStorage.getItem('apiUrl') || 'http://localhost:8080',
       formData: {
         githubUrl: '',
+        branchName: '',
         options: {
           class: false,
           function: false,
           interface: false,
           variable: false
         },
-        fileMatch: '*/**'
+        fileMatch: '*/**',
+        scanFolder: '',
+        bedrockPauseTime: 2500
       }
     }
   },
   methods: {
     handleSubmit() {
       console.log('Form submitted:', this.formData.githubUrl, this.formData.branchName);
-      const apiUrl = `${this.apiUrl}/createCodeGraph?gitUrl=${this.formData.githubUrl}&branch=${this.formData.branchName}`
+      const apiUrl = `${this.apiUrl}/createCodeGraph?gitUrl=${this.formData.githubUrl}&branch=${this.formData.branchName}&subFolder=${this.formData.scanFolder}&bedrockAPIPauseTime=${this.formData.bedrockPauseTime}`
       axios.get(apiUrl)
         .then(response => {
           this.apiResponse = JSON.stringify(response.data, null, 2)
@@ -110,6 +123,14 @@ export default {
 }
 
 .form-group input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.form-group input[type="number"] {
   width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
