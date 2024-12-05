@@ -1,5 +1,17 @@
 <template>
   <div class="create-view">
+    <!-- Response Dialog -->
+    <div v-if="showDialog" class="dialog-overlay">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h2>API Response</h2>
+          <button @click="closeDialog" class="close-button">&times;</button>
+        </div>
+        <div class="dialog-content">
+          <pre>{{ apiResponse }}</pre>
+        </div>
+      </div>
+    </div>
     <h1>Graph Search Create</h1>
     <p class="api-url-display">Server API URL: {{ apiUrl }}</p>
     <form @submit.prevent="handleSubmit" class="analysis-form">
@@ -68,6 +80,8 @@ export default {
     return {
       isLoading: false,
       apiUrl: localStorage.getItem('apiUrl') || 'http://localhost:8080',
+      apiResponse: '',
+      showDialog: false,
       formData: {
         githubUrl: '',
         branchName: '',
@@ -94,6 +108,7 @@ export default {
       axios.post(apiUrl)
         .then(response => {
           this.apiResponse = JSON.stringify(response.data, null, 2)
+          this.showDialog = true
           // Reset form
           this.formData = {
             githubUrl: '',
@@ -111,10 +126,15 @@ export default {
         })
         .catch(error => {
           console.error('Error fetching API response:', error)
+          this.apiResponse = error
+          this.showDialog = true
         })
         .finally(() => {
           this.isLoading = false
         })
+    },
+    closeDialog() {
+      this.showDialog = false
     }
   }
 }
@@ -225,5 +245,67 @@ h1 {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 80%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.dialog-header h2 {
+  margin: 0;
+  font-size: 1.5em;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 5px;
+  color: #999;
+}
+
+.close-button:hover {
+  color: #666;
+}
+
+.dialog-content {
+  margin-top: 10px;
+}
+
+.dialog-content pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 </style>
