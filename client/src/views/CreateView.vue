@@ -3,6 +3,10 @@
     <h1>Graph Search Create</h1>
     <p class="api-url-display">Server API URL: {{ apiUrl }}</p>
     <form @submit.prevent="handleSubmit" class="analysis-form">
+      <div v-if="isLoading" class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Processing request...</p>
+      </div>
       <div class="form-group">
         <label for="githubUrl">Github URL:</label>
         <input type="text" id="githubUrl" v-model="formData.githubUrl" placeholder="Enter Github URL" required>
@@ -51,7 +55,7 @@
         <input type="text" id="fileMatch" v-model="formData.fileMatch" placeholder="*/**">
       </div>
 
-      <button type="submit">OK</button>
+      <button type="submit" :disabled="isLoading">{{ isLoading ? 'Processing...' : 'OK' }}</button>
     </form>
   </div>
 </template>
@@ -62,6 +66,7 @@ export default {
   name: 'CreateView',
   data() {
     return {
+      isLoading: false,
       apiUrl: localStorage.getItem('apiUrl') || 'http://localhost:8080',
       formData: {
         githubUrl: '',
@@ -80,14 +85,35 @@ export default {
   },
   methods: {
     handleSubmit() {
+      if (this.isLoading) return;
+      
+      this.isLoading = true;
       console.log('Form submitted:', this.formData.githubUrl, this.formData.branchName);
       const apiUrl = `${this.apiUrl}/createCodeGraph?gitUrl=${this.formData.githubUrl}&branch=${this.formData.branchName}&subFolder=${this.formData.scanFolder}&bedrockAPIPauseTime=${this.formData.bedrockPauseTime}`
+      
       axios.post(apiUrl)
         .then(response => {
           this.apiResponse = JSON.stringify(response.data, null, 2)
+          // Reset form
+          this.formData = {
+            githubUrl: '',
+            branchName: '',
+            options: {
+              class: false,
+              function: false,
+              interface: false,
+              variable: false
+            },
+            fileMatch: '*/**',
+            scanFolder: '',
+            bedrockPauseTime: 2500
+          }
         })
         .catch(error => {
           console.error('Error fetching API response:', error)
+        })
+        .finally(() => {
+          this.isLoading = false
         })
     }
   }
@@ -164,7 +190,40 @@ button:hover {
   background-color: #45a049;
 }
 
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 h1 {
   margin-bottom: 30px;
+}
+
+.loading-spinner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

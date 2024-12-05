@@ -41,28 +41,29 @@ async function invokeCommand(systemPrompt, messages) {
     }
 }
 
-async function invokeTitanEmbedding(message) {
+async function invokeEmbedding(message) {
     try {
         const command = new InvokeModelCommand({
-            modelId: "amazon.titan-embed-text-v2:0",
+            modelId: "cohere.embed-multilingual-v3",
             contentType: "application/json",
             accept: "application/json",
             body: JSON.stringify({
-                inputText: message,
+                texts: [message],
+                input_type: "search_document"
             })
         });
         const response = await client.send(command);
         const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-        return responseBody.embedding;
+        return responseBody.embeddings[0];
     } catch (error) {
         if (error instanceof ThrottlingException) {
             await sleep(BEDROCK_API_PAUSE_TIME);
             console.log(`Sleep for ${BEDROCK_API_PAUSE_TIME} milli-seconds and retry...`);
-            return await invokeTitanEmbedding(message);
+            return await invokeEmbedding(message);
         } else {
             throw error;
         }
     }
 }
 
-module.exports = { invokeCommand, invokeTitanEmbedding }
+module.exports = { invokeCommand, invokeEmbedding }

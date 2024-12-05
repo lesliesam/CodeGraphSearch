@@ -1,6 +1,6 @@
 const { getFunctionCaller, getFunctionCallee } = require('libs/neptune/readWithCypher');
 const { semanticSearch } = require('libs/opensearch/codeMetaRag');
-const { invokeTitanEmbedding } = require('libs/bedrock/runtime');
+const { invokeEmbedding } = require('libs/bedrock/runtime');
 
 const { FUNC_META_DATA } = require('libs/constants');
 
@@ -19,7 +19,7 @@ async function handler(event, context) {
                     const queryContent = queryStringParameters.query;
                     console.log(`index_name: ${index_name}, queryContent: ${queryContent}`);
 
-                    const vector = await invokeTitanEmbedding(queryContent);
+                    const vector = await invokeEmbedding(queryContent);
                     const results = await semanticSearch(index_name, vector, 5);
 
                     console.log(`results: ${JSON.stringify(results, null, 2)}`);

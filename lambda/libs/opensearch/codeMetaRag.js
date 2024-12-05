@@ -1,7 +1,7 @@
 const { Client } = require('@opensearch-project/opensearch');
 const { AwsSigv4Signer } = require('@opensearch-project/opensearch/aws');
 const { defaultProvider } = require('@aws-sdk/credential-provider-node');
-const { invokeTitanEmbedding } = require('../bedrock/runtime');
+const { invokeEmbedding } = require('../bedrock/runtime');
 
 const {
     PATH_META_DATA,
@@ -152,7 +152,7 @@ async function deleteIndex(indexName) {
 async function upsertPathMetaRag(name, path, description) {
     const indexName = PATH_META_DATA;
     await createIndex(indexName);
-    const description_vector = await invokeTitanEmbedding(description);
+    const description_vector = await invokeEmbedding(description);
 
     const operations = [];
     operations.push(
@@ -175,7 +175,7 @@ async function upsertPathMetaRag(name, path, description) {
 async function upsertClassMetaRag(name, path, description) {
     const indexName = CLASS_META_DATA;
     await createIndex(indexName);
-    const description_vector = await invokeTitanEmbedding(description);
+    const description_vector = await invokeEmbedding(description);
 
     const operations = [];
     operations.push(
@@ -208,7 +208,7 @@ async function upsertClassMetaRagFromDocument(documents) {
         }
         const descriptionObj = classObj.Class.Properties.find(prop => 'description' in prop);
         const description = descriptionObj ? descriptionObj.description : classObj.Class.Name;
-        const description_vector = await invokeTitanEmbedding(description);
+        const description_vector = await invokeEmbedding(description);
 
         operations.push(
             { update: { _index: indexName, _id: `${classObj.Class.Path}/${classObj.Class.Name}` } },
@@ -255,7 +255,7 @@ async function upsertFunctionMetaRagFromDocument(documents) {
 
             const descriptionObj = functionObj.Properties.find(prop => 'description' in prop);
             const description = descriptionObj ? descriptionObj.description : functionObj.Name;
-            const description_vector = await invokeTitanEmbedding(description);
+            const description_vector = await invokeEmbedding(description);
 
             operations.push(
                 { update: { _index: indexName, _id: `${fullClassName}/${functionObj.Name}` } },
