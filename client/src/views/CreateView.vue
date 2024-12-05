@@ -82,7 +82,7 @@ export default {
     handleSubmit() {
       console.log('Form submitted:', this.formData.githubUrl, this.formData.branchName);
       const apiUrl = `${this.apiUrl}/createCodeGraph?gitUrl=${this.formData.githubUrl}&branch=${this.formData.branchName}&subFolder=${this.formData.scanFolder}&bedrockAPIPauseTime=${this.formData.bedrockPauseTime}`
-      axios.get(apiUrl)
+      axios.post(apiUrl)
         .then(response => {
           this.apiResponse = JSON.stringify(response.data, null, 2)
         })
