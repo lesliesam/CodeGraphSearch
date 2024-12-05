@@ -57,15 +57,14 @@ export class CodeGraphSearchStack extends cdk.Stack {
 
     // Define the S3
     const codeDownloadBucket = new s3.Bucket(this, 'Code Download Bucket', {
-      bucketName: 'code-download-bucket',
+      bucketName: `code-download-bucket-${this.account}-${this.region}`,
       versioned: true,
     });
 
     const clientWebsiteBucket = new s3.Bucket(this, 'Code Graph Website Bucket', {
-      bucketName: 'code-graph-website',
+      bucketName: `code-graph-website-${this.account}-${this.region}`,
       websiteIndexDocument: 'index.html',
       websiteErrorDocument: 'index.html',
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     clientWebsiteBucket.addToResourcePolicy(

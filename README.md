@@ -7,4 +7,4 @@ The `cdk.json` file tells the CDK Toolkit how to execute your app.
 ## Useful commands
 
 * `npm install`   to download dependencies
-* `npm run deploy` to deploy the stack
+* `npm run deployAll` to deploy the stack
