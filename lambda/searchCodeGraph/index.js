@@ -1,8 +1,8 @@
-const { getFunctionCaller, getFunctionCallee } = require('libs/neptune/readWithCypher');
+const { getFunctionCaller, getFunctionCallee, getRelatedClasses } = require('libs/neptune/readWithCypher');
 const { semanticSearch } = require('libs/opensearch/codeMetaRag');
 const { invokeEmbedding } = require('libs/bedrock/runtime');
 
-const { FUNC_META_DATA } = require('libs/constants');
+const { FUNC_META_DATA, CLASS_META_DATA } = require('libs/constants');
 
 async function handler(event, context) {
     try {
@@ -27,6 +27,10 @@ async function handler(event, context) {
                         for (const result of results) {
                             result.caller = await getFunctionCaller(result._source.path, result._source.name);
                             result.callto = await getFunctionCallee(result._source.path, result._source.name);
+                        }
+                    } else if (index_name === CLASS_META_DATA) {
+                        for (const result of results) {
+                            result.relatedClasses = await getRelatedClasses(result._source.path, result._source.name);
                         }
                     }
                     responseBody = results;

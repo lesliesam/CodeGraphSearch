@@ -61,8 +61,49 @@ async function getFunctionCallee(className, funcName) {
     }
 }
 
+async function getRelatedClasses(path, className) {
+    const query = `
+        MATCH (c:${TYPE_CLASS} {path: '${path}', name: '${className}'})
+        MATCH (c)-[:${EDGE_EXTENDS}]->(pc:${TYPE_CLASS})
+        RETURN DISTINCT pc.name AS name, pc.path AS path
 
-module.exports = { executeOpenCypherQuery, getFunctionCaller, getFunctionCallee }
+        UNION
+
+        MATCH (c:${TYPE_CLASS} {path: '${path}', name: '${className}'})
+        MATCH (c)<-[:${EDGE_EXTENDS}]-(sc:${TYPE_CLASS})
+        RETURN DISTINCT sc.name AS name, sc.path AS path
+
+        UNION
+
+        MATCH (c:${TYPE_CLASS} {path: '${path}', name: '${className}'})
+        MATCH (c)-[:${EDGE_CONTAINS}]->(f:${TYPE_FUNCTION})
+        MATCH (f)-[:${EDGE_CALL}*1..2]->(callee:${TYPE_FUNCTION})
+        MATCH (callee) <-[:${EDGE_CONTAINS}]-(rc:${TYPE_CLASS})
+        RETURN DISTINCT rc.name AS name, rc.path AS path
+        LIMIT 20
+
+        UNION
+
+        MATCH (c:${TYPE_CLASS} {path: '${path}', name: '${className}'})
+        MATCH (c)-[:${EDGE_CONTAINS}]->(f:${TYPE_FUNCTION})
+        MATCH (f)<-[:${EDGE_CALL}*1..2]-(caller:${TYPE_FUNCTION})
+        MATCH (caller) <-[:${EDGE_CONTAINS}]-(rc:${TYPE_CLASS})
+        RETURN DISTINCT rc.name AS name, rc.path AS path
+        LIMIT 20
+    `;
+
+    try {
+        const response = await executeOpenCypherQuery(query);
+        console.log(response.results);
+        return response.results;
+    } catch (error) {
+        console.error('Error executing query:', error);
+        throw error;
+    }
+}
+
+
+module.exports = { executeOpenCypherQuery, getFunctionCaller, getFunctionCallee, getRelatedClasses }
 
 // // Test
 // const query = `
