@@ -27,7 +27,7 @@ async function scanRepository(repositoryRoot) {
     for (const file of files) {
         try {
             const fileName = path.basename(file);
-            if (fileName.includes('ignore')) {
+            if (fileName.includes('ignore') || fileName === 'package.json') {
                 console.log(`Skip ${file}.`);
                 continue;
             }
