@@ -117,7 +117,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
       visibilityTimeout: cdk.Duration.seconds(900),
       deadLetterQueue: {
         queue: codeDownloadDlq,
-        maxReceiveCount: 10,
+        maxReceiveCount: 2,
       },
     });
 
@@ -128,7 +128,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
       visibilityTimeout: cdk.Duration.seconds(900),
       deadLetterQueue: {
         queue: codeReaderDlq,
-        maxReceiveCount: 10,
+        maxReceiveCount: 2,
       },
     });
 
@@ -262,6 +262,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
       },
       memorySize: 512,
+      reservedConcurrentExecutions: 1,
     });
     codeReaderLambdaFunction.addEnvironment('REGION', this.region);
     codeReaderLambdaFunction.addEnvironment('S3_BUCKET_NAME', codeDownloadBucket.bucketName);
@@ -288,6 +289,7 @@ export class CodeGraphSearchStack extends cdk.Stack {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
       },
       memorySize: 512,
+      reservedConcurrentExecutions: 1,
     });
     codeSummarizerLambdaFunction.addEnvironment('REGION', this.region);
     codeSummarizerLambdaFunction.addEnvironment('S3_BUCKET_NAME', codeDownloadBucket.bucketName);
