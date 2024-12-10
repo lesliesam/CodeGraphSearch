@@ -64,14 +64,19 @@ async function getFunctionCallee(className, funcName) {
 async function getRelatedClasses(path, className) {
     const query = `
         MATCH (c:${TYPE_CLASS} {path: '${path}', name: '${className}'})
+        RETURN  c.name AS name, c.path AS path, c.file_extension as file_extension
+
+        UNION
+
+        MATCH (c:${TYPE_CLASS} {path: '${path}', name: '${className}'})
         MATCH (c)-[:${EDGE_EXTENDS}]->(pc:${TYPE_CLASS})
-        RETURN DISTINCT pc.name AS name, pc.path AS path
+        RETURN DISTINCT pc.name AS name, pc.path AS path, pc.file_extension as file_extension
 
         UNION
 
         MATCH (c:${TYPE_CLASS} {path: '${path}', name: '${className}'})
         MATCH (c)<-[:${EDGE_EXTENDS}]-(sc:${TYPE_CLASS})
-        RETURN DISTINCT sc.name AS name, sc.path AS path
+        RETURN DISTINCT sc.name AS name, sc.path AS path, sc.file_extension as file_extension
 
         UNION
 
@@ -79,7 +84,7 @@ async function getRelatedClasses(path, className) {
         MATCH (c)-[:${EDGE_CONTAINS}]->(f:${TYPE_FUNCTION})
         MATCH (f)-[:${EDGE_CALL}*1..2]->(callee:${TYPE_FUNCTION})
         MATCH (callee) <-[:${EDGE_CONTAINS}]-(rc:${TYPE_CLASS})
-        RETURN DISTINCT rc.name AS name, rc.path AS path
+        RETURN DISTINCT rc.name AS name, rc.path AS path, rc.file_extension as file_extension
         LIMIT 20
 
         UNION
@@ -88,7 +93,7 @@ async function getRelatedClasses(path, className) {
         MATCH (c)-[:${EDGE_CONTAINS}]->(f:${TYPE_FUNCTION})
         MATCH (f)<-[:${EDGE_CALL}*1..2]-(caller:${TYPE_FUNCTION})
         MATCH (caller) <-[:${EDGE_CONTAINS}]-(rc:${TYPE_CLASS})
-        RETURN DISTINCT rc.name AS name, rc.path AS path
+        RETURN DISTINCT rc.name AS name, rc.path AS path, rc.file_extension as file_extension
         LIMIT 20
     `;
 
