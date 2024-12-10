@@ -26,8 +26,14 @@ async function scanRepository(repositoryRoot) {
     
     for (const file of files) {
         try {
+            const fileName = path.basename(file);
+            if (fileName.includes('ignore')) {
+                console.log(`Skip ${file}.`);
+                continue;
+            }
+
             const fileNameToSave = path.relative(repositoryRoot, file).replace(/[/.]/g, '-') + '.json';
-            console.log(`Processing file: ${fileNameToSave}`);
+            console.log(`Processing ${file} and save it as ${fileNameToSave}`);
             const classContent = fs.readFileSync(file, 'utf8');
             const classMeta = await generateClassMeta(filesWithRelativePath.join('\n'), path.relative(repositoryRoot, file), classContent);
             

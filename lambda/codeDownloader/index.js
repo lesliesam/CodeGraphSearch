@@ -57,6 +57,7 @@ async function handler(event, context) {
             const bedrockAPIPauseTime = queryStringParameters.bedrockAPIPauseTime;
 
             const { downloadDir, uuid } = await downloadCode(gitUrl, branch);
+            console.log(`Upload ${downloadDir} to ${bucketName}/${CODE_SOURCE_BUCKET_PREFIX}/${uuid}`);
             await uploadFolderToS3(bucketName, downloadDir, `${CODE_SOURCE_BUCKET_PREFIX}/${uuid}`);
 
             const sendMessageResult = await invokeSQS(queueUrl, {
