@@ -273,7 +273,6 @@ export class CodeGraphSearchStack extends cdk.Stack {
     codeReaderLambdaFunction.addEventSource(
       new lambdaEventSources.SqsEventSource(codeDownloadQueue, {
         batchSize: 1,
-        maxConcurrency: 2,
       })
     );
 
@@ -301,7 +300,6 @@ export class CodeGraphSearchStack extends cdk.Stack {
     codeSummarizerLambdaFunction.addEventSource(
       new lambdaEventSources.SqsEventSource(codeReaderQueue, {
         batchSize: 1,
-        maxConcurrency: 2,
       })
     );
 
