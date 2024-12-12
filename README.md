@@ -74,16 +74,12 @@ Steps:
    ```
    npm install
    ```
-3. Install Lambda dependencies:
-   ```
-   node scripts/install-lambda-deps.js
-   ```
 
 ### Getting Started
 
 1. Deploy the infrastructure:
    ```
-   npm run deploy
+   npm run deployAll
    ```
 
 2. After deployment, note the CloudFront URL output for accessing the web interface.
@@ -190,7 +186,7 @@ Steps:
 
 2. Deploy the stack:
    ```
-   npm run deploy
+   npx cdk deploy
    ```
 
 3. Note the outputs, including the CloudFront distribution URL for the web interface.
